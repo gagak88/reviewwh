@@ -223,6 +223,11 @@
         <div class="card" style="height:380px"><canvas id="kotaChart"></canvas></div>
       </div>
     </div>
+    <div class="st">Top 5 Artikel per Platform</div>
+    <div class="card">
+      <div class="mbtn-wrap" id="platform-filter-tabs"></div>
+      <div id="platform-artikel-list" class="bar-list" style="margin-top:4px"></div>
+    </div>
     <div class="st">Platform / Sumber Order per Bulan</div>
     <div class="card">
       <div class="mbtn-wrap" id="sumber-tabs"></div>
@@ -390,6 +395,9 @@ function renderOutbound(D){
       scales:{x:{grid:{color:'#2a3040'},ticks:{font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}
   });
 
+  // Platform top 5 artikel
+  renderPlatformFilter(D);
+
   // Sumber tabs
   const months = D.months;
   document.getElementById('sumber-tabs').innerHTML=months.map((m,i)=>
@@ -402,6 +410,50 @@ function renderOutbound(D){
     `<button class="mbtn ${i===0?'active':''}" onclick="updateKurir('${m}',this,window._D)">${m}</button>`
   ).join('');
   renderKurir(months[0], D);
+}
+
+// ============================================================
+// TOP 5 ARTIKEL PER PLATFORM
+// ============================================================
+function renderPlatformFilter(D){
+  const platforms = Object.keys(D.top5_by_sumber || {});
+  if (!platforms.length) return;
+
+  document.getElementById('platform-filter-tabs').innerHTML =
+    platforms.map((p, i) =>
+      `<button class="mbtn ${i===0?'active':''}" onclick="updatePlatformArtikel('${p}',this,window._D)">${p}</button>`
+    ).join('');
+
+  renderPlatformArtikel(platforms[0], D);
+}
+
+function renderPlatformArtikel(platform, D){
+  const data = (D.top5_by_sumber || {})[platform] || [];
+  const colors = ['#f0a500','#e89500','#d08000','#b86b00','#9a5500'];
+
+  if (!data.length) {
+    document.getElementById('platform-artikel-list').innerHTML =
+      '<div style="color:var(--text3);font-size:13px;padding:12px 0">Tidak ada data untuk platform ini.</div>';
+    return;
+  }
+
+  const max = Math.max(...data.map(d => d.qty), 1);
+  document.getElementById('platform-artikel-list').innerHTML = data.map((d, i) => `
+    <div class="bar-item">
+      <div class="bar-rank">${i+1}</div>
+      <div class="bar-label" title="${d.name}">${d.name}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${(d.qty/max*100).toFixed(1)}%;background:${colors[i]}">
+          <span class="bar-val">${fmtN(d.qty)}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function updatePlatformArtikel(platform, btn, D){
+  document.querySelectorAll('#platform-filter-tabs .mbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPlatformArtikel(platform, D);
 }
 
 function renderSumber(month, D){
