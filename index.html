@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Gudang Portee</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d0f14;--surface:#161a22;--surface2:#1e2430;--border:#2a3040;
+    --accent:#f0a500;--accent2:#3ecf8e;--accent3:#5b8df6;--accent4:#e05c5c;
+    --text:#e8eaf0;--text2:#8b92a8;--text3:#555f75;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+  /* LOADING */
+  #loading-screen{
+    position:fixed;inset:0;background:var(--bg);z-index:999;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+    transition:opacity 0.5s;
+  }
+  #loading-screen.hidden{opacity:0;pointer-events:none}
+  .spinner{
+    width:48px;height:48px;border:3px solid var(--border);
+    border-top-color:var(--accent);border-radius:50%;
+    animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading-text{font-size:14px;color:var(--text2);font-weight:500}
+  .loading-sub{font-size:11px;color:var(--text3)}
+
+  /* ERROR */
+  #error-box{
+    display:none;margin:40px auto;max-width:520px;
+    background:rgba(224,92,92,0.08);border:1px solid rgba(224,92,92,0.3);
+    border-radius:12px;padding:24px;text-align:center;
+  }
+  #error-box h3{color:var(--accent4);margin-bottom:8px}
+  #error-box p{font-size:13px;color:var(--text2);line-height:1.6}
+  #error-box code{
+    display:block;margin-top:14px;padding:10px 14px;
+    background:var(--surface2);border-radius:8px;
+    font-family:'Space Mono',monospace;font-size:11px;
+    color:var(--accent);text-align:left;word-break:break-all;
+  }
+
+  /* HEADER */
+  .header{
+    background:var(--bg);border-bottom:1px solid var(--border);
+    padding:18px 32px;display:flex;align-items:center;
+    justify-content:space-between;position:sticky;top:0;z-index:100;
+  }
+  .header-left{display:flex;align-items:center;gap:14px}
+  .logo-box{
+    width:40px;height:40px;background:var(--accent);border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Space Mono',monospace;font-weight:700;font-size:14px;color:#000;
+  }
+  .header-title{font-size:18px;font-weight:800;letter-spacing:-0.3px}
+  .header-sub{font-size:11px;color:var(--text2);margin-top:2px}
+  .header-right{display:flex;align-items:center;gap:10px}
+  .refresh-btn{
+    padding:7px 14px;border-radius:8px;border:1px solid var(--border);
+    background:var(--surface2);color:var(--text2);font-size:12px;font-weight:600;
+    cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:all 0.15s;
+  }
+  .refresh-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .last-update{font-size:11px;color:var(--text3);font-family:'Space Mono',monospace}
+
+  /* TABS */
+  .tabs{
+    display:flex;gap:4px;padding:14px 32px 0;
+    border-bottom:1px solid var(--border);background:var(--bg);
+  }
+  .tab{
+    padding:9px 18px;border-radius:8px 8px 0 0;font-size:13px;font-weight:600;
+    cursor:pointer;color:var(--text2);border:1px solid transparent;
+    border-bottom:none;transition:all 0.2s;position:relative;bottom:-1px;
+  }
+  .tab:hover{color:var(--text);background:var(--surface)}
+  .tab.active{background:var(--surface);color:var(--accent);border-color:var(--border);border-bottom-color:var(--surface)}
+
+  /* CONTENT */
+  .content{display:none;padding:28px 32px}
+  .content.active{display:block}
+
+  /* SECTION TITLE */
+  .st{
+    font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+    color:var(--text3);margin:28px 0 14px;display:flex;align-items:center;gap:8px;
+  }
+  .st:first-child{margin-top:0}
+  .st::after{content:'';flex:1;height:1px;background:var(--border)}
+
+  /* GRIDS */
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+
+  /* CARD */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+  .card-title{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:16px}
+
+  /* STAT */
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+  .stat-label{font-size:11px;color:var(--text2);font-weight:500;margin-bottom:8px}
+  .stat-value{font-size:26px;font-weight:800;font-family:'Space Mono',monospace;line-height:1}
+  .stat-sub{font-size:11px;color:var(--text3);margin-top:6px}
+
+  /* BAR LIST */
+  .bar-list{display:flex;flex-direction:column;gap:9px}
+  .bar-item{display:flex;align-items:center;gap:8px}
+  .bar-rank{width:18px;font-size:10px;font-family:'Space Mono',monospace;color:var(--text3);text-align:center;flex-shrink:0}
+  .bar-label{width:190px;font-size:12px;color:var(--text2);text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar-track{flex:1;height:22px;background:var(--surface2);border-radius:4px;overflow:hidden;position:relative}
+  .bar-fill{height:100%;border-radius:4px;transition:width 0.9s cubic-bezier(0.4,0,0.2,1);position:relative}
+  .bar-val{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;font-family:'Space Mono',monospace;font-weight:700;color:rgba(255,255,255,0.85)}
+
+  /* SIZE GRID */
+  .sg{display:flex;flex-wrap:wrap;gap:10px}
+  .si{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;text-align:center;min-width:68px;transition:all 0.2s}
+  .si:hover{border-color:var(--accent)}
+  .si-num{font-size:18px;font-weight:800}
+  .si-qty{font-size:11px;color:var(--text3);margin-top:3px;font-family:'Space Mono',monospace}
+  .si-top{font-size:9px;color:var(--accent);margin-top:3px;font-weight:700}
+
+  /* MONTH BTN */
+  .mbtn-wrap{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+  .mbtn{
+    padding:5px 13px;border-radius:6px;font-size:12px;font-weight:600;
+    cursor:pointer;background:var(--surface2);border:1px solid var(--border);
+    color:var(--text2);transition:all 0.15s;font-family:'Plus Jakarta Sans',sans-serif;
+  }
+  .mbtn:hover{color:var(--text)}
+  .mbtn.active{background:var(--accent);border-color:var(--accent);color:#000}
+
+  /* TABLE */
+  .tw{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);border-bottom:1px solid var(--border)}
+  td{padding:10px 12px;border-bottom:1px solid rgba(42,48,64,0.5);color:var(--text2)}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:var(--surface2);color:var(--text)}
+  .tn{font-family:'Space Mono',monospace;font-size:12px;text-align:right}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:0.5px}
+  .bg{background:rgba(62,207,142,0.15);color:var(--accent2)}
+  .br{background:rgba(224,92,92,0.15);color:var(--accent4)}
+  .by{background:rgba(240,165,0,0.15);color:var(--accent)}
+  .bb{background:rgba(91,141,246,0.15);color:var(--accent3)}
+
+  /* DEADSTOCK */
+  .dc{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:13px}
+  .dc-bln{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--accent)}
+  .dc-row{display:flex;justify-content:space-between;align-items:center}
+  .dc-key{font-size:12px;color:var(--text2)}
+  .dc-val{font-size:14px;font-family:'Space Mono',monospace;font-weight:700}
+  .dc-div{height:1px;background:var(--border)}
+
+  @media(max-width:768px){
+    .g2,.g3,.g4{grid-template-columns:1fr}
+    .tabs{padding:10px 14px 0;gap:2px}
+    .tab{padding:7px 10px;font-size:11px}
+    .content{padding:18px 14px}
+    .header{padding:12px 14px}
+    .bar-label{width:120px;font-size:11px}
+  }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <div class="loading-text">Mengambil data dari Google Sheets...</div>
+  <div class="loading-sub">Mohon tunggu sebentar</div>
+</div>
+
+<!-- ERROR -->
+<div id="error-box">
+  <h3>⚠️ Gagal Mengambil Data</h3>
+  <p>Pastikan Apps Script sudah di-deploy dan URL endpoint sudah benar di file <strong>config.js</strong> atau di bawah ini.</p>
+  <code id="error-detail"></code>
+</div>
+
+<!-- MAIN -->
+<div id="main" style="display:none">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-box">PG</div>
+      <div>
+        <div class="header-title">Dashboard Gudang Portee</div>
+        <div class="header-sub">Warehouse Analytics — Bandung</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="last-update" id="last-update"></span>
+      <button class="refresh-btn" onclick="loadData()">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active"  onclick="switchTab('outbound')">📦 Outbound BDG</div>
+    <div class="tab"         onclick="switchTab('inbound')">🏭 Inbound BDG</div>
+    <div class="tab"         onclick="switchTab('retur')">↩️ Retur</div>
+    <div class="tab"         onclick="switchTab('deadstock')">🗃️ Deadstock</div>
+  </div>
+
+  <!-- OUTBOUND -->
+  <div id="tab-outbound" class="content active">
+    <div class="g4" id="out-stats"></div>
+    <div class="st">Top 15 Artikel Terlaris</div>
+    <div class="card"><div id="top15-bars" class="bar-list"></div></div>
+    <div class="g2" style="margin-top:16px">
+      <div>
+        <div class="st">Best Seller Size</div>
+        <div class="card"><div class="sg" id="size-grid"></div></div>
+      </div>
+      <div>
+        <div class="st">Penjualan per Kota (Top 15)</div>
+        <div class="card" style="height:380px"><canvas id="kotaChart"></canvas></div>
+      </div>
+    </div>
+    <div class="st">Platform / Sumber Order per Bulan</div>
+    <div class="card">
+      <div class="mbtn-wrap" id="sumber-tabs"></div>
+      <div style="height:270px"><canvas id="sumberChart"></canvas></div>
+    </div>
+    <div class="st">Kurir per Bulan</div>
+    <div class="card">
+      <div class="mbtn-wrap" id="kurir-tabs"></div>
+      <div style="height:270px"><canvas id="kurirChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- INBOUND -->
+  <div id="tab-inbound" class="content">
+    <div class="g3" id="in-stats"></div>
+    <div class="st">Detail per Vendor</div>
+    <div class="card">
+      <div class="tw">
+        <table>
+          <thead><tr>
+            <th>#</th><th>Vendor</th>
+            <th style="text-align:right">QTY Setor</th>
+            <th style="text-align:right">Qty Lolos</th>
+            <th style="text-align:right">Qty Reject</th>
+            <th style="text-align:right">% Lolos</th>
+            <th style="text-align:right">% Reject</th>
+          </tr></thead>
+          <tbody id="inbound-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="st">Perbandingan Vendor</div>
+    <div class="card" style="height:340px"><canvas id="inboundChart"></canvas></div>
+  </div>
+
+  <!-- RETUR -->
+  <div id="tab-retur" class="content">
+    <div class="g3" id="ret-stats"></div>
+    <div class="g2" style="margin-top:0">
+      <div>
+        <div class="st">Top 10 Artikel Retur</div>
+        <div class="card"><div id="retur-bars" class="bar-list"></div></div>
+      </div>
+      <div>
+        <div class="st">Size Paling Banyak Diretur</div>
+        <div class="card"><div class="sg" id="retur-size-grid"></div></div>
+      </div>
+    </div>
+    <div class="st">Problem Retur berdasarkan Total QTY</div>
+    <div class="card" style="max-width:580px"><div id="problem-bars" class="bar-list"></div></div>
+  </div>
+
+  <!-- DEADSTOCK -->
+  <div id="tab-deadstock" class="content">
+    <div class="st">Ringkasan per Bulan</div>
+    <div class="g3" id="deadstock-cards"></div>
+    <div class="st">Tren Deadstock vs Onstock (QTY)</div>
+    <div class="card" style="height:300px"><canvas id="deadstockChart"></canvas></div>
+    <div class="st">Nilai Persediaan</div>
+    <div class="card" style="height:300px"><canvas id="nilaiChart"></canvas></div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ============================================================
+// CONFIG — ganti APPS_SCRIPT_URL setelah deploy
+// ============================================================
+const APPS_SCRIPT_URL = 'PAShttps://script.google.com/macros/s/AKfycbya99n3NSFOH0niC5HC2_RGLtHZEm8-7HKb4y2czoJLajCys3H0UPtLwMlW4x8xnRRkvw/execTE_YOUR_APPS_SCRIPT_URL_HERE';
+
+// ============================================================
+// COLORS & HELPERS
+// ============================================================
+const C = {
+  sumber : ['#f0a500','#3ecf8e','#5b8df6','#e05c5c','#c084fc','#34d399'],
+  kurir  : ['#f0a500','#3ecf8e','#5b8df6','#e05c5c','#c084fc','#34d399','#fb923c','#60a5fa','#f472b6','#a78bfa','#fbbf24','#94a3b8'],
+  bars   : (n,base='38,87,0') => Array.from({length:n},(_,i)=>`hsla(${38-i*1.8},${88-i*2}%,${54-i*2}%,0.9)`),
+  ret    : (n) => Array.from({length:n},(_,i)=>`hsla(${0+i*3},${72}%,${55-i*2}%,0.9)`),
+};
+const fmt  = n => n>=1e6?(n/1e6).toFixed(1)+'jt':n>=1e3?(n/1e3).toFixed(1)+'rb':String(n);
+const fmtN = n => Number(n).toLocaleString('id-ID');
+const fmtRp= n => n>=1e9?'Rp '+(n/1e9).toFixed(2)+' M':n>=1e6?'Rp '+(n/1e6).toFixed(1)+' jt':'Rp '+Number(n).toLocaleString('id-ID');
+
+Chart.defaults.color='#8b92a8';
+Chart.defaults.borderColor='#2a3040';
+Chart.defaults.font.family="'Plus Jakarta Sans',sans-serif";
+
+let charts = {};
+function destroyChart(id){ if(charts[id]){charts[id].destroy();delete charts[id];} }
+
+// ============================================================
+// TAB
+// ============================================================
+function switchTab(name){
+  const tabs=['outbound','inbound','retur','deadstock'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',tabs[i]===name));
+  document.querySelectorAll('.content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// ============================================================
+// RENDER HELPERS
+// ============================================================
+function renderBars(id, data, nk, qk, colors){
+  const max = Math.max(...data.map(d=>d[qk]),1);
+  document.getElementById(id).innerHTML = data.map((d,i)=>`
+    <div class="bar-item">
+      <div class="bar-rank">${i+1}</div>
+      <div class="bar-label" title="${d[nk]}">${d[nk]}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${(d[qk]/max*100).toFixed(1)}%;background:${colors[Math.min(i,colors.length-1)]}">
+          <span class="bar-val">${fmtN(d[qk])}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderSizeGrid(id, data, sk, qk){
+  const max=Math.max(...data.map(d=>d[qk]),1);
+  document.getElementById(id).innerHTML=data.map((d,i)=>`
+    <div class="si" style="${i===0?'border-color:var(--accent);background:rgba(240,165,0,0.1)':''}">
+      <div class="si-num" style="color:${i===0?'var(--accent)':'var(--text)'}">${d[sk]}</div>
+      <div class="si-qty">${fmtN(d[qk])}</div>
+      ${i===0?'<div class="si-top">🏆 TOP</div>':''}
+    </div>`).join('');
+}
+
+function renderStats(id, stats){
+  document.getElementById(id).innerHTML=stats.map(s=>`
+    <div class="stat">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value" style="color:${s.color};${s.small?'font-size:16px':''}">${s.value}</div>
+      <div class="stat-sub">${s.sub||''}</div>
+    </div>`).join('');
+}
+
+// ============================================================
+// OUTBOUND
+// ============================================================
+function renderOutbound(D){
+  const totalQty = D.top15_artikel.reduce((a,d)=>a+d.qty,0);
+  renderStats('out-stats',[
+    {label:'Total Bulan',value:D.months.length,color:'var(--accent)',sub:'Jan–Apr 2026'},
+    {label:'Artikel Terlaris',value:D.top15_artikel[0]?.name||'-',color:'var(--accent2)',sub:fmtN(D.top15_artikel[0]?.qty||0)+' unit',small:true},
+    {label:'Platform Aktif',value:'6',color:'var(--accent3)',sub:'Shopee, Tokopedia, dll'},
+    {label:'Total Qty (Top 15)',value:fmt(totalQty),color:'var(--accent4)',sub:'unit terjual'},
+  ]);
+
+  renderBars('top15-bars', D.top15_artikel, 'name','qty', C.bars(15));
+  renderSizeGrid('size-grid', D.top_sizes, 'size','qty');
+
+  // Kota chart
+  destroyChart('kota');
+  const kCtx=document.getElementById('kotaChart').getContext('2d');
+  charts.kota=new Chart(kCtx,{
+    type:'bar',
+    data:{
+      labels:D.top_kota.map(d=>d.kota),
+      datasets:[{label:'QTY',data:D.top_kota.map(d=>d.qty),
+        backgroundColor:D.top_kota.map((_,i)=>`hsla(${38-i*2},88%,${55-i*1.5}%,0.85)`),
+        borderRadius:5,borderSkipped:false}]
+    },
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:'#2a3040'},ticks:{font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}
+  });
+
+  // Sumber tabs
+  const months = D.months;
+  document.getElementById('sumber-tabs').innerHTML=months.map((m,i)=>
+    `<button class="mbtn ${i===0?'active':''}" onclick="updateSumber('${m}',this,window._D)">${m}</button>`
+  ).join('');
+  renderSumber(months[0], D);
+
+  // Kurir tabs
+  document.getElementById('kurir-tabs').innerHTML=months.map((m,i)=>
+    `<button class="mbtn ${i===0?'active':''}" onclick="updateKurir('${m}',this,window._D)">${m}</button>`
+  ).join('');
+  renderKurir(months[0], D);
+}
+
+function renderSumber(month, D){
+  destroyChart('sumber');
+  const d=D.sumber_per_bulan[month]||{};
+  const ctx=document.getElementById('sumberChart').getContext('2d');
+  charts.sumber=new Chart(ctx,{
+    type:'bar',
+    data:{labels:Object.keys(d),datasets:[{data:Object.values(d),backgroundColor:C.sumber,borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${fmtN(c.raw)} unit`}}},
+      scales:{x:{grid:{display:false}},y:{grid:{color:'#2a3040'}}}}
+  });
+}
+function updateSumber(m,btn,D){
+  document.querySelectorAll('#sumber-tabs .mbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSumber(m,D);
+}
+
+function renderKurir(month, D){
+  destroyChart('kurir');
+  const d=D.kurir_per_bulan[month]||{};
+  const sorted=Object.entries(d).sort((a,b)=>b[1]-a[1]);
+  const ctx=document.getElementById('kurirChart').getContext('2d');
+  charts.kurir=new Chart(ctx,{
+    type:'doughnut',
+    data:{
+      labels:sorted.map(e=>e[0]),
+      datasets:[{data:sorted.map(e=>e[1]),backgroundColor:C.kurir,borderColor:'#161a22',borderWidth:3,hoverOffset:8}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'right',labels:{font:{size:11},padding:10,boxWidth:12}},
+        tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtN(c.raw)} unit`}}}}
+  });
+}
+function updateKurir(m,btn,D){
+  document.querySelectorAll('#kurir-tabs .mbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderKurir(m,D);
+}
+
+// ============================================================
+// INBOUND
+// ============================================================
+function renderInbound(D){
+  const totalSetor  = D.inbound.reduce((a,d)=>a+d.setor,0);
+  const totalLolos  = D.inbound.reduce((a,d)=>a+d.lolos,0);
+  const totalReject = D.inbound.reduce((a,d)=>a+d.reject,0);
+  renderStats('in-stats',[
+    {label:'Total QTY Setor',  value:fmt(totalSetor),  color:'var(--accent)',   sub:'Dari semua vendor'},
+    {label:'Total Lolos QC',   value:fmt(totalLolos),  color:'var(--accent2)',  sub:(totalLolos/totalSetor*100).toFixed(1)+'% dari setor'},
+    {label:'Total Reject',     value:fmt(totalReject), color:'var(--accent4)',  sub:(totalReject/totalSetor*100).toFixed(1)+'% dari setor'},
+  ]);
+
+  // Table
+  document.getElementById('inbound-tbody').innerHTML=D.inbound.map((d,i)=>{
+    const pL=(d.setor>0?(d.lolos/d.setor*100).toFixed(1):0);
+    const pR=(d.setor>0?(d.reject/d.setor*100).toFixed(1):0);
+    const rCls=parseFloat(pR)>10?'br':parseFloat(pR)>3?'by':'bg';
+    return `<tr>
+      <td class="tn">${i+1}</td>
+      <td><strong>${d.vendor||'-'}</strong></td>
+      <td class="tn">${fmtN(d.setor)}</td>
+      <td class="tn" style="color:var(--accent2)">${fmtN(d.lolos)}</td>
+      <td class="tn" style="color:var(--accent4)">${fmtN(d.reject)}</td>
+      <td class="tn"><span class="badge bg">${pL}%</span></td>
+      <td class="tn"><span class="badge ${rCls}">${pR}%</span></td>
+    </tr>`;
+  }).join('');
+
+  // Chart
+  destroyChart('inbound');
+  const ctx=document.getElementById('inboundChart').getContext('2d');
+  const labels=D.inbound.map(d=>d.vendor.replace('MAKLOON ','').replace('BENGKEL ',''));
+  charts.inbound=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'QTY Setor', data:D.inbound.map(d=>d.setor),  backgroundColor:'rgba(240,165,0,0.75)', borderRadius:4},
+      {label:'Qty Lolos', data:D.inbound.map(d=>d.lolos),  backgroundColor:'rgba(62,207,142,0.75)',borderRadius:4},
+      {label:'Qty Reject',data:D.inbound.map(d=>d.reject), backgroundColor:'rgba(224,92,92,0.75)', borderRadius:4},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11}}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#2a3040'}}}}
+  });
+}
+
+// ============================================================
+// RETUR
+// ============================================================
+function renderRetur(D){
+  const totRet=D.retur_artikel.reduce((a,d)=>a+d.qty,0);
+  const topProb=D.retur_problems[0];
+  renderStats('ret-stats',[
+    {label:'Total Retur',       value:fmtN(D.total_retur||totRet), color:'var(--accent4)', sub:'Item diretur'},
+    {label:'Problem Terbesar',  value:topProb?.problem||'-',       color:'var(--accent)',  sub:fmtN(topProb?.qty||0)+' kasus',small:true},
+    {label:'Artikel Retur #1',  value:D.retur_artikel[0]?.name||'-',color:'var(--accent3)',sub:fmtN(D.retur_artikel[0]?.qty||0)+' kasus',small:true},
+  ]);
+  renderBars('retur-bars',   D.retur_artikel,  'name','qty',   C.ret(10));
+  renderSizeGrid('retur-size-grid', D.retur_size, 'size','qty');
+  renderBars('problem-bars', D.retur_problems, 'problem','qty',
+    ['#e05c5c','#5b8df6','#f0a500','#3ecf8e','#c084fc','#34d399']);
+}
+
+// ============================================================
+// DEADSTOCK
+// ============================================================
+function renderDeadstock(D){
+  document.getElementById('deadstock-cards').innerHTML=D.deadstock.map(d=>`
+    <div class="dc">
+      <div class="dc-bln">${d.bulan}</div>
+      <div class="dc-div"></div>
+      <div class="dc-row"><div class="dc-key">Deadstock (QTY)</div><div class="dc-val" style="color:var(--accent4)">${fmtN(d.deadstock)}</div></div>
+      <div class="dc-row"><div class="dc-key">Nilai Deadstock</div><div class="dc-val" style="color:var(--accent4);font-size:12px">${fmtRp(d.nilai_deadstock)}</div></div>
+      <div class="dc-div"></div>
+      <div class="dc-row"><div class="dc-key">Onstock (QTY)</div><div class="dc-val" style="color:var(--accent2)">${fmtN(d.onstock)}</div></div>
+      <div class="dc-row"><div class="dc-key">Nilai Onstock</div><div class="dc-val" style="color:var(--accent2);font-size:12px">${fmtRp(d.nilai_onstock)}</div></div>
+    </div>`).join('');
+
+  const labels=D.deadstock.map(d=>d.bulan);
+  destroyChart('ds');
+  charts.ds=new Chart(document.getElementById('deadstockChart').getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'Deadstock',data:D.deadstock.map(d=>d.deadstock),backgroundColor:'rgba(224,92,92,0.8)',borderRadius:6,yAxisID:'y'},
+      {label:'Onstock',  data:D.deadstock.map(d=>d.onstock),  backgroundColor:'rgba(62,207,142,0.8)',borderRadius:6,yAxisID:'y2'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11}}}},
+      scales:{
+        x:{grid:{display:false}},
+        y:{position:'left',grid:{color:'#2a3040'},title:{display:true,text:'Deadstock',font:{size:10}}},
+        y2:{position:'right',grid:{display:false},title:{display:true,text:'Onstock',font:{size:10}}},
+      }}
+  });
+
+  destroyChart('nilai');
+  charts.nilai=new Chart(document.getElementById('nilaiChart').getContext('2d'),{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'Nilai Deadstock',data:D.deadstock.map(d=>d.nilai_deadstock),borderColor:'#e05c5c',backgroundColor:'rgba(224,92,92,0.1)',fill:true,tension:0.3,pointRadius:6,pointBackgroundColor:'#e05c5c'},
+      {label:'Nilai Onstock',  data:D.deadstock.map(d=>d.nilai_onstock),  borderColor:'#3ecf8e',backgroundColor:'rgba(62,207,142,0.1)',fill:true,tension:0.3,pointRadius:6,pointBackgroundColor:'#3ecf8e'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11}}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fmtRp(c.raw)}`}}},
+      scales:{x:{grid:{display:false}},y:{grid:{color:'#2a3040'},ticks:{callback:v=>fmtRp(v)}}}}
+  });
+}
+
+// ============================================================
+// LOAD DATA
+// ============================================================
+async function loadData(){
+  document.getElementById('loading-screen').classList.remove('hidden');
+  document.getElementById('loading-screen').style.opacity='1';
+  document.getElementById('loading-screen').style.pointerEvents='auto';
+  document.getElementById('error-box').style.display='none';
+
+  try {
+    const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes('?')?'&':'?') + 'sheet=all&cb='+Date.now();
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const D = await res.json();
+    if (D.error) throw new Error(D.error);
+
+    window._D = D;
+    renderOutbound(D);
+    renderInbound(D);
+    renderRetur(D);
+    renderDeadstock(D);
+
+    const now = new Date();
+    document.getElementById('last-update').textContent =
+      'Update: ' + now.toLocaleDateString('id-ID') + ' ' + now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+
+    document.getElementById('main').style.display='block';
+    document.getElementById('loading-screen').style.opacity='0';
+    setTimeout(()=>{
+      document.getElementById('loading-screen').style.display='none';
+    },500);
+
+  } catch(err){
+    document.getElementById('loading-screen').style.display='none';
+    document.getElementById('error-box').style.display='block';
+    document.getElementById('error-detail').textContent = err.toString() +
+      '\n\nURL yang digunakan:\n' + APPS_SCRIPT_URL;
+  }
+}
+
+window.onload = loadData;
+</script>
+</body>
+</html>
