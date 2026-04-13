@@ -284,6 +284,19 @@
   <div id="tab-deadstock" class="content">
     <div class="st">Ringkasan per Bulan</div>
     <div class="g3" id="deadstock-cards"></div>
+    <div class="st">Top 10 Artikel Deadstock per Bulan</div>
+    <div class="card">
+      <div class="mbtn-wrap" id="dead-artikel-tabs"></div>
+      <div class="tw"><table id="dead-artikel-table">
+        <thead><tr>
+          <th>#</th>
+          <th>Artikel</th>
+          <th style="text-align:right">Nilai Persediaan</th>
+          <th>Size</th>
+        </tr></thead>
+        <tbody id="dead-artikel-tbody"></tbody>
+      </table></div>
+    </div>
     <div class="st">Tren Deadstock vs Onstock (QTY)</div>
     <div class="card" style="height:300px"><canvas id="deadstockChart"></canvas></div>
     <div class="st">Nilai Persediaan</div>
@@ -296,7 +309,7 @@
 // ============================================================
 // CONFIG — ganti APPS_SCRIPT_URL setelah deploy
 // ============================================================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbya99n3NSFOH0niC5HC2_RGLtHZEm8-7HKb4y2czoJLajCys3H0UPtLwMlW4x8xnRRkvw/exec';
+const APPS_SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_URL_HERE';
 
 // ============================================================
 // COLORS & HELPERS
@@ -562,7 +575,31 @@ function renderRetur(D){
 // ============================================================
 // DEADSTOCK
 // ============================================================
+function updateDeadArtikel(bulan, btn, D){
+  document.querySelectorAll('#dead-artikel-tabs .mbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDeadArtikel(bulan, D);
+}
+
+function renderDeadArtikel(bulan, D){
+  const data = (D.top_artikel_dead || {})[bulan] || [];
+  document.getElementById('dead-artikel-tbody').innerHTML = data.map((d, i) => `
+    <tr>
+      <td class="tn">${i+1}</td>
+      <td><strong>${d.name}</strong></td>
+      <td class="tn" style="color:var(--accent4)">${fmtRp(d.nilai)}</td>
+      <td><span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--accent3)">${d.sizes}</span></td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px">Tidak ada data</td></tr>';
+}
+
 function renderDeadstock(D){
+  // Tabs for artikel deadstock per bulan
+  const deadBulans = Object.keys(D.top_artikel_dead || {});
+  document.getElementById('dead-artikel-tabs').innerHTML = deadBulans.map((b, i) =>
+    `<button class="mbtn ${i===0?'active':''}" onclick="updateDeadArtikel('${b}',this,window._D)">${b}</button>`
+  ).join('');
+  if (deadBulans.length) renderDeadArtikel(deadBulans[0], D);
+
   document.getElementById('deadstock-cards').innerHTML=D.deadstock.map(d=>`
     <div class="dc">
       <div class="dc-bln">${d.bulan}</div>
