@@ -150,6 +150,27 @@
   .by{background:rgba(240,165,0,0.15);color:var(--accent)}
   .bb{background:rgba(91,141,246,0.15);color:var(--accent3)}
 
+  /* FILTER BAR */
+  .filter-bar{
+    display:flex;align-items:center;gap:10px;margin-bottom:18px;padding:14px 18px;
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;
+  }
+  .filter-bar label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)}
+  .filter-select{
+    padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;
+    background:var(--surface2);border:1px solid var(--border);color:var(--text);
+    font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer;outline:none;
+    transition:border-color 0.15s;appearance:auto;
+  }
+  .filter-select:hover,.filter-select:focus{border-color:var(--accent)}
+  .filter-reset{
+    padding:6px 14px;border-radius:6px;font-size:11px;font-weight:700;
+    background:transparent;border:1px solid var(--border);color:var(--text3);
+    cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:all 0.15s;
+    margin-left:auto;
+  }
+  .filter-reset:hover{border-color:var(--accent4);color:var(--accent4)}
+
   /* DEADSTOCK */
   .dc{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:13px}
   .dc-bln{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--accent)}
@@ -210,6 +231,13 @@
 
   <!-- OUTBOUND -->
   <div id="tab-outbound" class="content active">
+    <div class="filter-bar" id="outbound-filter">
+      <label>🔍 Filter:</label>
+      <select class="filter-select" id="outbound-bulan" onchange="applyOutboundFilter()">
+        <option value="all">Semua Bulan</option>
+      </select>
+      <button class="filter-reset" onclick="resetOutboundFilter()">✕ Reset</button>
+    </div>
     <div class="g4" id="out-stats"></div>
     <div class="st">Top 15 Artikel Terlaris</div>
     <div class="card"><div id="top15-bars" class="bar-list"></div></div>
@@ -242,6 +270,13 @@
 
   <!-- INBOUND -->
   <div id="tab-inbound" class="content">
+    <div class="filter-bar" id="inbound-filter">
+      <label>🔍 Filter:</label>
+      <select class="filter-select" id="inbound-bulan" onchange="applyInboundFilter()">
+        <option value="all">Semua Bulan</option>
+      </select>
+      <button class="filter-reset" onclick="resetInboundFilter()">✕ Reset</button>
+    </div>
     <div class="g3" id="in-stats"></div>
     <div class="st">Detail per Vendor</div>
     <div class="card">
@@ -265,6 +300,13 @@
 
   <!-- RETUR -->
   <div id="tab-retur" class="content">
+    <div class="filter-bar" id="retur-filter">
+      <label>🔍 Filter:</label>
+      <select class="filter-select" id="retur-bulan" onchange="applyReturFilter()">
+        <option value="all">Semua Bulan</option>
+      </select>
+      <button class="filter-reset" onclick="resetReturFilter()">✕ Reset</button>
+    </div>
     <div class="g3" id="ret-stats"></div>
     <div class="g2" style="margin-top:0">
       <div>
@@ -642,6 +684,244 @@ function renderDeadstock(D){
 }
 
 // ============================================================
+// FILTER FUNCTIONS (BARU)
+// ============================================================
+
+// --- Populate filter dropdowns ---
+function populateFilters(D) {
+  // Outbound filter — pakai D.months
+  const outSel = document.getElementById('outbound-bulan');
+  outSel.innerHTML = '<option value="all">Semua Bulan</option>';
+  (D.months || []).forEach(m => {
+    outSel.innerHTML += `<option value="${m}">${m}</option>`;
+  });
+
+  // Inbound filter — pakai D.inbound_months
+  const inSel = document.getElementById('inbound-bulan');
+  inSel.innerHTML = '<option value="all">Semua Bulan</option>';
+  (D.inbound_months || []).forEach(m => {
+    inSel.innerHTML += `<option value="${m}">${m}</option>`;
+  });
+
+  // Retur filter — pakai D.retur_months
+  const retSel = document.getElementById('retur-bulan');
+  retSel.innerHTML = '<option value="all">Semua Bulan</option>';
+  (D.retur_months || []).forEach(m => {
+    retSel.innerHTML += `<option value="${m}">${m}</option>`;
+  });
+}
+
+// --- OUTBOUND FILTER ---
+function applyOutboundFilter() {
+  const D = window._D;
+  if (!D) return;
+  const bulan = document.getElementById('outbound-bulan').value;
+
+  if (bulan === 'all') {
+    renderOutbound(D);
+    return;
+  }
+
+  // Ambil data per bulan dari backend baru
+  const pb = (D.outbound_per_bulan || {})[bulan];
+  if (!pb) {
+    renderOutbound(D); // fallback ke semua
+    return;
+  }
+
+  // Stats
+  const totalQty = pb.top15_artikel.reduce((a,d)=>a+d.qty,0);
+  const platformCount = Object.keys(pb.top5_by_sumber || {}).length;
+  renderStats('out-stats',[
+    {label:'Bulan', value:bulan, color:'var(--accent)', sub:'Filter aktif'},
+    {label:'Artikel Terlaris', value:pb.top15_artikel[0]?.name||'-', color:'var(--accent2)', sub:fmtN(pb.top15_artikel[0]?.qty||0)+' unit', small:true},
+    {label:'Platform Aktif', value:String(platformCount), color:'var(--accent3)', sub:'di bulan ini'},
+    {label:'Total Qty (Top 15)', value:fmt(totalQty), color:'var(--accent4)', sub:'unit terjual'},
+  ]);
+
+  renderBars('top15-bars', pb.top15_artikel, 'name','qty', C.bars(15));
+  renderSizeGrid('size-grid', pb.top_sizes, 'size','qty');
+
+  // Kota chart
+  destroyChart('kota');
+  const kCtx=document.getElementById('kotaChart').getContext('2d');
+  charts.kota=new Chart(kCtx,{
+    type:'bar',
+    data:{
+      labels:pb.top_kota.map(d=>d.kota),
+      datasets:[{label:'QTY',data:pb.top_kota.map(d=>d.qty),
+        backgroundColor:pb.top_kota.map((_,i)=>`hsla(${38-i*2},88%,${55-i*1.5}%,0.85)`),
+        borderRadius:5,borderSkipped:false}]
+    },
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:'#2a3040'},ticks:{font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}
+  });
+
+  // Platform filter per bulan
+  const platforms = Object.keys(pb.top5_by_sumber || {});
+  document.getElementById('platform-filter-tabs').innerHTML =
+    platforms.map((p, i) =>
+      `<button class="mbtn ${i===0?'active':''}" onclick="updatePlatformArtikelFiltered('${p}',this,'${bulan}')">${p}</button>`
+    ).join('');
+  if (platforms.length) renderPlatformArtikelFiltered(platforms[0], bulan);
+
+  // Sumber & Kurir tetap tampilkan bulan yang dipilih
+  document.getElementById('sumber-tabs').innerHTML =
+    `<button class="mbtn active">${bulan}</button>`;
+  renderSumber(bulan, D);
+
+  document.getElementById('kurir-tabs').innerHTML =
+    `<button class="mbtn active">${bulan}</button>`;
+  renderKurir(bulan, D);
+}
+
+function renderPlatformArtikelFiltered(platform, bulan) {
+  const D = window._D;
+  const pb = (D.outbound_per_bulan || {})[bulan];
+  const data = pb ? (pb.top5_by_sumber || {})[platform] || [] : [];
+  const colors = ['#f0a500','#e89500','#d08000','#b86b00','#9a5500'];
+  if (!data.length) {
+    document.getElementById('platform-artikel-list').innerHTML =
+      '<div style="color:var(--text3);font-size:13px;padding:12px 0">Tidak ada data untuk platform ini.</div>';
+    return;
+  }
+  const max = Math.max(...data.map(d => d.qty), 1);
+  document.getElementById('platform-artikel-list').innerHTML = data.map((d, i) => `
+    <div class="bar-item">
+      <div class="bar-rank">${i+1}</div>
+      <div class="bar-label" title="${d.name}">${d.name}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${(d.qty/max*100).toFixed(1)}%;background:${colors[i]}">
+          <span class="bar-val">${fmtN(d.qty)}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function updatePlatformArtikelFiltered(platform, btn, bulan) {
+  document.querySelectorAll('#platform-filter-tabs .mbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPlatformArtikelFiltered(platform, bulan);
+}
+
+function resetOutboundFilter() {
+  document.getElementById('outbound-bulan').value = 'all';
+  applyOutboundFilter();
+}
+
+// --- INBOUND FILTER ---
+function applyInboundFilter() {
+  const D = window._D;
+  if (!D) return;
+  const bulan = document.getElementById('inbound-bulan').value;
+
+  if (bulan === 'all') {
+    renderInbound(D);
+    return;
+  }
+
+  const data = (D.inbound_per_bulan || {})[bulan];
+  if (!data || !data.length) {
+    renderStats('in-stats',[
+      {label:'Bulan', value:bulan, color:'var(--accent)', sub:'Filter aktif'},
+      {label:'Total Lolos QC', value:'0', color:'var(--accent2)', sub:'Tidak ada data'},
+      {label:'Total Reject', value:'0', color:'var(--accent4)', sub:'Tidak ada data'},
+    ]);
+    document.getElementById('inbound-tbody').innerHTML =
+      '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">Tidak ada data untuk bulan ini</td></tr>';
+    destroyChart('inbound');
+    return;
+  }
+
+  const totalSetor  = data.reduce((a,d)=>a+d.setor,0);
+  const totalLolos  = data.reduce((a,d)=>a+d.lolos,0);
+  const totalReject = data.reduce((a,d)=>a+d.reject,0);
+  renderStats('in-stats',[
+    {label:'Total QTY Setor ('+bulan+')', value:fmt(totalSetor), color:'var(--accent)', sub:'Filter: '+bulan},
+    {label:'Total Lolos QC', value:fmt(totalLolos), color:'var(--accent2)', sub:(totalSetor>0?(totalLolos/totalSetor*100).toFixed(1):'0')+'% dari setor'},
+    {label:'Total Reject', value:fmt(totalReject), color:'var(--accent4)', sub:(totalSetor>0?(totalReject/totalSetor*100).toFixed(1):'0')+'% dari setor'},
+  ]);
+
+  document.getElementById('inbound-tbody').innerHTML=data.map((d,i)=>{
+    const pL=(d.setor>0?(d.lolos/d.setor*100).toFixed(1):0);
+    const pR=(d.setor>0?(d.reject/d.setor*100).toFixed(1):0);
+    const rCls=parseFloat(pR)>10?'br':parseFloat(pR)>3?'by':'bg';
+    return `<tr>
+      <td class="tn">${i+1}</td>
+      <td><strong>${d.vendor||'-'}</strong></td>
+      <td class="tn">${fmtN(d.setor)}</td>
+      <td class="tn" style="color:var(--accent2)">${fmtN(d.lolos)}</td>
+      <td class="tn" style="color:var(--accent4)">${fmtN(d.reject)}</td>
+      <td class="tn"><span class="badge bg">${pL}%</span></td>
+      <td class="tn"><span class="badge ${rCls}">${pR}%</span></td>
+    </tr>`;
+  }).join('');
+
+  destroyChart('inbound');
+  const ctx=document.getElementById('inboundChart').getContext('2d');
+  const labels=data.map(d=>d.vendor.replace('MAKLOON ','').replace('BENGKEL ',''));
+  charts.inbound=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'QTY Setor', data:data.map(d=>d.setor),  backgroundColor:'rgba(240,165,0,0.75)', borderRadius:4},
+      {label:'Qty Lolos', data:data.map(d=>d.lolos),  backgroundColor:'rgba(62,207,142,0.75)',borderRadius:4},
+      {label:'Qty Reject',data:data.map(d=>d.reject), backgroundColor:'rgba(224,92,92,0.75)', borderRadius:4},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11}}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#2a3040'}}}}
+  });
+}
+
+function resetInboundFilter() {
+  document.getElementById('inbound-bulan').value = 'all';
+  applyInboundFilter();
+}
+
+// --- RETUR FILTER ---
+function applyReturFilter() {
+  const D = window._D;
+  if (!D) return;
+  const bulan = document.getElementById('retur-bulan').value;
+
+  if (bulan === 'all') {
+    renderRetur(D);
+    return;
+  }
+
+  const pb = (D.retur_per_bulan || {})[bulan];
+  if (!pb) {
+    renderStats('ret-stats',[
+      {label:'Bulan', value:bulan, color:'var(--accent4)', sub:'Filter aktif'},
+      {label:'Problem Terbesar', value:'-', color:'var(--accent)', sub:'Tidak ada data', small:true},
+      {label:'Artikel Retur #1', value:'-', color:'var(--accent3)', sub:'Tidak ada data', small:true},
+    ]);
+    document.getElementById('retur-bars').innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px">Tidak ada data retur untuk bulan ini</div>';
+    document.getElementById('retur-size-grid').innerHTML = '';
+    document.getElementById('problem-bars').innerHTML = '';
+    return;
+  }
+
+  const topProb = pb.retur_problems[0];
+  renderStats('ret-stats',[
+    {label:'Total Retur ('+bulan+')', value:fmtN(pb.total_retur), color:'var(--accent4)', sub:'Item diretur'},
+    {label:'Problem Terbesar', value:topProb?.problem||'-', color:'var(--accent)', sub:fmtN(topProb?.qty||0)+' kasus', small:true},
+    {label:'Artikel Retur #1', value:pb.retur_artikel[0]?.name||'-', color:'var(--accent3)', sub:fmtN(pb.retur_artikel[0]?.qty||0)+' kasus', small:true},
+  ]);
+
+  renderBars('retur-bars', pb.retur_artikel, 'name','qty', C.ret(10));
+  renderSizeGrid('retur-size-grid', pb.retur_size, 'size','qty');
+  renderBars('problem-bars', pb.retur_problems, 'problem','qty',
+    ['#e05c5c','#5b8df6','#f0a500','#3ecf8e','#c084fc','#34d399']);
+}
+
+function resetReturFilter() {
+  document.getElementById('retur-bulan').value = 'all';
+  applyReturFilter();
+}
+
+// ============================================================
 // LOAD DATA
 // ============================================================
 async function loadData(){
@@ -658,6 +938,7 @@ async function loadData(){
     if (D.error) throw new Error(D.error);
 
     window._D = D;
+    populateFilters(D);
     renderOutbound(D);
     renderInbound(D);
     renderRetur(D);
