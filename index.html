@@ -730,13 +730,13 @@ function applyOutboundFilter() {
   }
 
   // Stats
-  const totalQty = pb.top15_artikel.reduce((a,d)=>a+d.qty,0);
+  const totalQty = pb.total_qty || pb.top15_artikel.reduce((a,d)=>a+d.qty,0);
   const platformCount = Object.keys(pb.top5_by_sumber || {}).length;
   renderStats('out-stats',[
     {label:'Bulan', value:bulan, color:'var(--accent)', sub:'Filter aktif'},
     {label:'Artikel Terlaris', value:pb.top15_artikel[0]?.name||'-', color:'var(--accent2)', sub:fmtN(pb.top15_artikel[0]?.qty||0)+' unit', small:true},
     {label:'Platform Aktif', value:String(platformCount), color:'var(--accent3)', sub:'di bulan ini'},
-    {label:'Total Qty (Top 15)', value:fmt(totalQty), color:'var(--accent4)', sub:'unit terjual'},
+    {label:'Total Qty Bulan Ini', value:fmt(totalQty), color:'var(--accent4)', sub:'unit terjual'},
   ]);
 
   renderBars('top15-bars', pb.top15_artikel, 'name','qty', C.bars(15));
