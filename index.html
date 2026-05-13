@@ -428,7 +428,7 @@ function renderOutbound(D){
     {label:'Total Bulan',value:D.months.length,color:'var(--accent)',sub:'Jan–Apr 2026'},
     {label:'Artikel Terlaris',value:D.top15_artikel[0]?.name||'-',color:'var(--accent2)',sub:fmtN(D.top15_artikel[0]?.qty||0)+' unit',small:true},
     {label:'Platform Aktif',value:'6',color:'var(--accent3)',sub:'Shopee, Tokopedia, dll'},
-    {label:'Total Qty (Top 15)',value:fmt(totalQty),color:'var(--accent4)',sub:'unit terjual'},
+    {label:'Total Qty',value:fmt(totalQty),color:'var(--accent4)',sub:'unit terjual'},
   ]);
 
   renderBars('top15-bars', D.top15_artikel, 'name','qty', C.bars(15));
