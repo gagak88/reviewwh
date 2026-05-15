@@ -496,14 +496,31 @@ function renderDailyChart(canvasId, chartKey, dailyData, label, lineColor, fillC
 
   const months = Object.keys(dailyData);
 
-  // Buat labels tanggal 1-31
-  const maxDay = Math.max(...months.map(m => (dailyData[m] || []).length));
+  // Cari tanggal maksimum dari semua bulan
+  let maxDay = 0;
+  months.forEach(m => {
+    (dailyData[m] || []).forEach(d => {
+      const day = parseInt(d.tanggal);
+      if (day > maxDay) maxDay = day;
+    });
+  });
+  if (maxDay === 0) maxDay = 31;
+
+  // Labels tanggal 1 sampai maxDay
   const labels = Array.from({length: maxDay}, (_, i) => String(i + 1));
 
-  // Satu dataset per bulan
+  // Satu dataset per bulan — data diletakkan di posisi tanggal yang benar
   const datasets = months.map((m, idx) => {
     const color = C.monthly[idx % C.monthly.length];
-    const data = (dailyData[m] || []).map(d => d.qty || 0);
+    // Buat array kosong (null) untuk setiap hari
+    const data = new Array(maxDay).fill(null);
+    // Isi data di posisi tanggal yang benar
+    (dailyData[m] || []).forEach(d => {
+      const dayIndex = parseInt(d.tanggal) - 1; // tanggal "01" -> index 0
+      if (dayIndex >= 0 && dayIndex < maxDay) {
+        data[dayIndex] = d.qty || 0;
+      }
+    });
     return {
       label: m,
       data: data,
@@ -515,6 +532,7 @@ function renderDailyChart(canvasId, chartKey, dailyData, label, lineColor, fillC
       pointHoverRadius: 5,
       pointBackgroundColor: color,
       borderWidth: 2,
+      spanGaps: true, // hubungkan titik meskipun ada null di antaranya
     };
   });
 
