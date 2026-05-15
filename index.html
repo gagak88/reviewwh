@@ -557,7 +557,7 @@ function renderDailyChart(canvasId, chartKey, dailyData, label, lineColor, fillC
 // OUTBOUND
 // ============================================================
 function renderOutbound(D){
-  const totalQty = D.top15_artikel.reduce((a,d)=>a+d.qty,0);
+  const totalQty = D.total_qty_all || D.top15_artikel.reduce((a,d)=>a+d.qty,0);
   renderStats('out-stats',[
     {label:'Total Bulan',value:D.months.length,color:'var(--accent)',sub:'Jan–Apr 2026'},
     {label:'Artikel Terlaris',value:D.top15_artikel[0]?.name||'-',color:'var(--accent2)',sub:fmtN(D.top15_artikel[0]?.qty||0)+' unit',small:true},
